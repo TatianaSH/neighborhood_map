@@ -1,0 +1,26 @@
+    <!DOCTYPE html>
+<html lang="en">
+    <head>
+        <title>Place searches</title>
+        <meta name="viewport" content="initial-scale=1.0, user-scalable=no">
+        <meta charset="utf-8">
+        <link rel="stylesheet" href="css/style.css">
+        <link rel="stylesheet" media="(max-width: 768px)" href="css/max-768px.css">
+        <link rel="stylesheet" media="(max-width: 480px)" href="css/max-480px.css">
+        <script src="js/libs/knockout-3.2.0.js"></script>
+        <script src="js/libs/oauth-signature.min.js"></script>
+        <script src="https://maps.googleapis.com/maps/api/js?v=3.exp&signed_in=true&libraries=places"></script>
+    </head>
+    <body>
+        <div id="map-canvas"></div>
+        <div id = "locationList">
+            <div id ="search">Search    <input id = "input" type="text" data-bind="value: filter, valueUpdate: 'afterkeydown'" value=""></div>
+            <h3>Location List</h3>
+            <ul data-bind="foreach: filtered">
+                <li  data-bind="text: name, click: $parent.setPlace"></li>
+            </ul>
+        </div>
+        <script src="js/libs/jquery.min.js"></script>
+        <script src="js/script.js"></script>
+    </body>
+</html>
