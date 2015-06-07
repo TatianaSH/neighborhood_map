@@ -1,3 +1,4 @@
+"use strict";
 var map;
 var infowindow;
 var selectedMarker;
@@ -23,7 +24,7 @@ function callback(results, status) {
     if (status == google.maps.places.PlacesServiceStatus.OK) {
         for (var i = 0; i < results.length; i++) {
             results[i].marker = createMarker(results[i]);
-            list.push(results[i]);
+            vm.places.push(results[i]);
         }
     }
 }
@@ -39,17 +40,15 @@ function createMarker(place) {
         (new viewModel()).makeInfoWindow(place, marker);
     });
     return marker;
-};
+}
 
 google.maps.event.addDomListener(window, 'load', initialize);
-
-//This array (Location List) holds list of places received from google maps API.
-var list = ko.observableArray([]);
 
 //View Model. It's support filtering of places from Location List.
 var viewModel = function() {
     var self = this;
-    this.places = list;
+    //This array (Location List) holds list of places received from google maps API.
+    this.places = ko.observableArray([]);
     this.filter = ko.observable();
     this.filtered = ko.computed(function() {
         var filter = self.filter();
@@ -69,23 +68,29 @@ var viewModel = function() {
     };
 
     this.makeInfoWindow = function(place, marker) {
+        map.setCenter(marker.getPosition());
         readFromYelp(place, function(result) {
             if (result && (!result.error)) {
                 //Trying to match name by first 5 letters if Yelp returned more than 1 result.
-                for (var i = 0; i < result.businesses.length; i++) {
+                var len = result.businesses.length;
+                for (var i = 0; i < len; i++) {
                     if (place.name.substr(0, 5) == result.businesses[i].name.substr(0, 5)) {
                         break;
                     }
                 }
-                if (i != result.businesses.length) {
+                if (i != len) {
                     html += '<div id ="rating">' + '<img src = " ' + result.businesses[i].rating_img_url + '">' + '</div>' +
                         '<div>' + 'phone: ' + result.businesses[i].display_phone + '</div>' +
                         '<p>' + 'About: ' + '<a href = "' + result.businesses[i].url + '">' + 'link Yelp' + '</a>' + '</p>' +
                         '<div>' + result.businesses[i].snippet_text + '</div>';
                     infowindow.setContent('<div id="iw-container">' + html + '</div>');
+                } else {
+                    html += 'We can\'t find additional data on Yelp.';
+                    infowindow.setContent('<div id="iw-container">' + html + '</div>');
                 }
             } else {
-                html += 'No data from Yelp';
+                html += result.error;
+                infowindow.setContent('<div id="iw-container">' + html + '</div>');
             }
         });
 
@@ -94,16 +99,18 @@ var viewModel = function() {
         infowindow.open(map, marker);
         if (selectedMarker) {
             selectedMarker.setAnimation(null);
-        };
+        }
         selectedMarker = marker;
         marker.setAnimation(google.maps.Animation.BOUNCE);
         google.maps.event.addListener(infowindow, "closeclick", function() {
             marker.setAnimation(null);
         });
-    }
+    };
 };
 
-ko.applyBindings(new viewModel());
+var vm = new viewModel();
+
+ko.applyBindings(vm);
 
 //Load data from Yelp, call onData function on data arrived.
 var readFromYelp = function(place, onData) {
@@ -114,7 +121,7 @@ var readFromYelp = function(place, onData) {
      */
     function nonce_generate() {
         return (Math.floor(Math.random() * 1e12).toString());
-    };
+    }
 
     var yelp_url = 'http://api.yelp.com/v2/search';
     var parameters = {
@@ -124,18 +131,15 @@ var readFromYelp = function(place, onData) {
         oauth_timestamp: Math.floor(Date.now() / 1000),
         oauth_signature_method: 'HMAC-SHA1',
         oauth_version: '1.0',
-        callback: 'cb', // This is crucial to include for jsonp implementation in AJAX or else the oauth-signature will be wrong.
-        location: place.vicinity,
+        callback: '_jqjsp', // This is crucial to include for jsonp implementation in AJAX or else the oauth-signature will be wrong.
+        location: place.vicinity + ',MD',
         term: place.name,
         sort: 1,
-        radius_filter: 200,
-        //term: place.types[0],
         cll: '' + place.geometry.location.lat() + ',' + place.geometry.location.lng()
     };
 
     var encodedSignature = oauthSignature.generate('GET', yelp_url, parameters, 'zRTOVAFsMamtxfiJphYy8SATtL8', 'z21GEJKWNHnVoA_-74WEx3QZiDE');
     parameters.oauth_signature = encodedSignature;
-
     var settings = {
         url: yelp_url,
         data: parameters,
@@ -147,11 +151,12 @@ var readFromYelp = function(place, onData) {
         },
         error: function(xhr, textStatus, errorThrown) {
             // Do stuff on fail
-            console.log('fail ---- ');
-            onData(null);
+            onData({
+                error: 'Internet disconnected or Yelp failed to return data.'
+            });
         }
     };
 
     // Send AJAX query via jQuery library.
-    $.ajax(settings);
+    $.jsonp(settings);
 };
